@@ -18,7 +18,7 @@ def fetch_animals(query: str):
     headers = {"X-Api-Key": api_key}
     resp = requests.get(API_URL, headers=headers, params={"name": query}, timeout=20)
     resp.raise_for_status()
-    return resp.json()  # list of animals
+    return resp.json()  # list of animals (possibly empty)
 
 def serialize_animal(animal_obj: dict) -> str:
     """Serializes an animal object (API Ninjas schema) into your card-style HTML."""
@@ -44,6 +44,16 @@ def serialize_animal(animal_obj: dict) -> str:
     output.append("</li>")
     return "\n".join(output)
 
+def build_error_card(query: str) -> str:
+    """Generate a styled error message card when no animal is found."""
+    q = html.escape(query)
+    return (
+        "<li class='cards__item'>"
+        "<div class='card__title'>No Results</div>"
+        f"<div class='card__text'><h2>The animal \"{q}\" doesn't exist.</h2></div>"
+        "</li>"
+    )
+
 def main():
     # Ask user for an animal name
     query = input("Enter the name of an animal: ").strip()
@@ -51,15 +61,17 @@ def main():
         print("Please enter a name.")
         sys.exit(0)
 
-    # Fetch from API
     animals_data = fetch_animals(query)
 
     # Read template file
     with open("animals_template.html", "r", encoding="utf-8") as f:
         template = f.read()
 
-    # Build content
-    items_html = "\n".join(serialize_animal(a) for a in animals_data)
+    # Handle no results
+    if animals_data:
+        items_html = "\n".join(serialize_animal(a) for a in animals_data)
+    else:
+        items_html = build_error_card(query)
 
     # Replace placeholder
     new_html = template.replace("__REPLACE_ANIMALS_INFO__", items_html)
