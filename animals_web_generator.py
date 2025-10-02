@@ -1,27 +1,10 @@
-import os
+# animals_web_generator.py
 import sys
 import html
-import requests
-from dotenv import load_dotenv
-
-load_dotenv()
-
-API_URL = "https://api.api-ninjas.com/v1/animals"
-
-def fetch_animals(query: str):
-    """Fetch animal data from API Ninjas Animals endpoint."""
-    api_key = os.getenv("API_NINJAS_KEY")
-    if not api_key:
-        print("Error: Please set the environment variable API_NINJAS_KEY.")
-        sys.exit(1)
-
-    headers = {"X-Api-Key": api_key}
-    resp = requests.get(API_URL, headers=headers, params={"name": query}, timeout=20)
-    resp.raise_for_status()
-    return resp.json()  # list of animals (possibly empty)
+import data_fetcher
 
 def serialize_animal(animal_obj: dict) -> str:
-    """Serializes an animal object (API Ninjas schema) into your card-style HTML."""
+    """Serialize an animal (API Ninjas schema) into your card-style HTML."""
     name = html.escape(animal_obj.get("name", "Unknown"))
 
     characteristics = animal_obj.get("characteristics") or {}
@@ -31,21 +14,21 @@ def serialize_animal(animal_obj: dict) -> str:
     locations = animal_obj.get("locations") or []
     location_display = html.escape(locations[0]) if locations else "Unknown"
 
-    output = []
-    output.append("<li class='cards__item'>")
-    output.append(f"<div class='card__title'>{name}</div>")
-    output.append("<div class='card__text'>")
-    output.append("<ul>")
-    output.append(f"<li><strong>Diet:</strong> {diet}</li>")
-    output.append(f"<li><strong>Location:</strong> {location_display}</li>")
-    output.append(f"<li><strong>Type: </strong>{animal_type}</li>")
-    output.append("</ul>")
-    output.append("</div>")
-    output.append("</li>")
-    return "\n".join(output)
+    parts = []
+    parts.append("<li class='cards__item'>")
+    parts.append(f"<div class='card__title'>{name}</div>")
+    parts.append("<div class='card__text'>")
+    parts.append("<ul>")
+    parts.append(f"<li><strong>Diet:</strong> {diet}</li>")
+    parts.append(f"<li><strong>Location:</strong> {location_display}</li>")
+    parts.append(f"<li><strong>Type: </strong>{animal_type}</li>")
+    parts.append("</ul>")
+    parts.append("</div>")
+    parts.append("</li>")
+    return "\n".join(parts)
 
 def build_error_card(query: str) -> str:
-    """Generate a styled error message card when no animal is found."""
+    """Nice message when no animal is found (Milestone 3)."""
     q = html.escape(query)
     return (
         "<li class='cards__item'>"
@@ -55,28 +38,26 @@ def build_error_card(query: str) -> str:
     )
 
 def main():
-    # Ask user for an animal name
-    query = input("Enter the name of an animal: ").strip()
-    if not query:
+    animal_name = input("Please enter an animal: ").strip()
+    if not animal_name:
         print("Please enter a name.")
         sys.exit(0)
 
-    animals_data = fetch_animals(query)
+    # Get data from the separate fetcher module
+    animals = data_fetcher.fetch_data(animal_name)
 
-    # Read template file
+    # Read template
     with open("animals_template.html", "r", encoding="utf-8") as f:
         template = f.read()
 
-    # Handle no results
-    if animals_data:
-        items_html = "\n".join(serialize_animal(a) for a in animals_data)
+    # Build cards (or show a friendly message if none found)
+    if animals:
+        items_html = "\n".join(serialize_animal(a) for a in animals)
     else:
-        items_html = build_error_card(query)
+        items_html = build_error_card(animal_name)
 
-    # Replace placeholder
+    # Replace placeholder and write output
     new_html = template.replace("__REPLACE_ANIMALS_INFO__", items_html)
-
-    # Write new HTML file
     with open("animals.html", "w", encoding="utf-8") as f:
         f.write(new_html)
 
